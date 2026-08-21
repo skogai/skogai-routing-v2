@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "skogai-routing-v2",
+  "version": "0.1.0",
+  "description": "skogai-routing-v2",
+  "author": {
+    "name": "skogix",
+    "email": "emil@skogsund.se"
+  },
+  "skills": [
+    "./"
+  ],
+  "channels": [
+    {
+      "server": "skogai-routing-v2",
+      "displayName": "skogai-routing-v2"
+    }
+  ]
+}
