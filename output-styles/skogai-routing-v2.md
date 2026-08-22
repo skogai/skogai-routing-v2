@@ -1,8 +1,8 @@
 ---
-name: skogai-routing-v2
 description: TODO — one line shown in the Output style picker in /config
 force-for-plugin: true
 keep-coding-instructions: true
+name: skogai-routing-v2
 ---
 
 TODO: the style prompt. This is appended to Claude's system prompt while the

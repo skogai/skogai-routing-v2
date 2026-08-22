@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.rumdl]
+# Global configuration options
+line-length = 100
+disable = []
+# extend-enable = ["MD060"]  # Add opt-in rules (additive, keeps defaults)
+# extend-disable = []  # Additional rules to disable (additive)
+exclude = [
+    # Common directories to exclude
+    ".git",
+    ".github",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+]
+respect-gitignore = true
+
+# Rule-specific configurations (uncomment and modify as needed)
+
+# [tool.rumdl.MD003]
+# style = "atx"  # Heading style (atx, atx_closed, setext)
+
+# [tool.rumdl.MD004]
+# style = "asterisk"  # Unordered list style (asterisk, plus, dash, consistent)
+
+# [tool.rumdl.MD007]
+# indent = 4  # Unordered list indentation
+
+# [tool.rumdl.MD013]
+# line-length = 100  # Line length
+# code-blocks = false  # Exclude code blocks from line length check
+# tables = false  # Exclude tables from line length check
+# headings = true  # Include headings in line length check
+
+# [tool.rumdl.MD044]
+# names = ["rumdl", "Markdown", "GitHub"]  # Proper names that should be capitalized correctly
+# code-blocks = true  # Check code blocks for proper names (default: false, skips code blocks)

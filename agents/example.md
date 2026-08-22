@@ -1,6 +1,6 @@
 ---
-name: example
 description: TODO — when should Claude delegate to this subagent?
+name: example
 tools:
   - Read
   - Grep
