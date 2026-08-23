@@ -1,12 +1,13 @@
 ---
-description: TODO — describe WHEN Claude should use this. Include trigger phrases users might say ("do X", "set up Y", "review Z"). Be specific; this string is what Claude matches the user's request against.
-name: skogai-routing-v2
+permalink: skogai-routing-v2/root
+type: router
 ---
 
-# skogai-routing-v2
+<routes>
 
-TODO: what this skill does, and the steps Claude should take.
+- @docs/routing-contract.md - v2 graph and ownership contract
+- @scripts/validate_routing.py - graph validator
+- @tests/test_validate_routing.py - validator behavior
+- @tests/fixtures/ - valid and invalid example graphs
 
-```test
-echo "test"
-```
+</routes>
