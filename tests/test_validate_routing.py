@@ -40,6 +40,24 @@ class RoutingValidationTests(unittest.TestCase):
         self.assertIn("missing from owners", result.stdout)
         self.assertIn("owner does not directly route", result.stdout)
 
+    def test_reference_owner_missing(self) -> None:
+        result = self.run_fixture("reference-owner-missing")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reference owner does not exist", result.stdout)
+
+    def test_nested_route_at_sign_is_router_local(self) -> None:
+        # tests/fixtures/valid/docs/ROUTING.md routes to "@notes2.md", which must
+        # resolve next to ROUTING.md itself, not next to the graph root SKOGAI.md.
+        result = self.run_fixture("valid")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_unrouted_reference_is_not_checked(self) -> None:
+        # tests/fixtures/valid/docs/unrouted-reference.md declares a nonexistent
+        # owner but is never routed to, so it must not affect the result.
+        result = self.run_fixture("valid")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("DOES-NOT-EXIST.md", result.stdout)
+
     def test_all_roots_are_reported(self) -> None:
         roots = [
             FIXTURES / "broken-link" / "SKOGAI.md",

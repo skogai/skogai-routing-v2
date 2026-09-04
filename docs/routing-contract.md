@@ -32,8 +32,14 @@ Rules:
 - The graph root is the `SKOGAI.md` passed to the validator and must not declare an owner.
 - Router portal filenames use uppercase letters, digits, `_`, and `-`, with a `.md` suffix.
 - Each nonblank line in `<routes>` is a Markdown list item containing one path.
-- `@` marks a project-relative path. Plain paths are relative to the router containing the route.
+- Route paths are always relative to the router declaring them, with or without a leading `@` — a
+  router never needs to know where the graph root lives to declare its own routes.
 - Every route target must exist.
+
+A route target that isn't a router portal name is a leaf. Leaves need no frontmatter. A leaf may
+optionally declare `type: reference` with an `owners:` list; if it does, every declared owner must
+exist. A reference does not need to route back to its owner, and does not need to be routed to by
+anything in order to be valid — the check only runs for references a router actually points at.
 
 ## Ownership
 
@@ -45,6 +51,11 @@ router. An ancestor does not own its descendants merely because a route path exi
 intermediate router.
 
 The validator checks declarations in both directions. It never infers missing owners.
+
+Owner paths resolve differently from route paths, because an owner points outward toward an
+ancestor that may live anywhere in the graph: a leading `@` anchors to the graph root's directory,
+regardless of how deeply the declaring file is nested; a plain path is relative to the file
+declaring the owner, same as a route.
 
 ## Validation behavior
 
