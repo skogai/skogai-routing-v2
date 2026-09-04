@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "skogai-routing-v2",
+  "owner": {
+    "name": "skogix",
+    "email": "emil@skogsund.se"
+  },
+  "plugins": [
+    {
+      "name": "skogai-routing-v2",
+      "source": "./",
+      "description": "skogai-routing-v2"
+    }
+  ]
+}
