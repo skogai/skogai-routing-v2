@@ -12,6 +12,45 @@ FIXTURES = REPO / "tests" / "fixtures"
 
 
 class RoutingValidationTests(unittest.TestCase):
+    def test_reference_filename_diagnostic(self) -> None:
+        cases = [
+            (
+                "NOTES.md",
+                "type: reference",
+                "portal-shaped filenames (uppercase) are reserved for routers; "
+                "rename this reference to a lowercase filename or set type: router",
+            ),
+            ("notes.md", "type: reference", None),
+            ("NOTES.md", "type: other", "frontmatter type must be 'router'"),
+            ("NOTES.md", "", "frontmatter type must be 'router'"),
+            ("NOTES.md", "invalid frontmatter", "unsupported frontmatter line"),
+        ]
+        for filename, frontmatter, expected in cases:
+            with self.subTest(filename=filename, frontmatter=frontmatter):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory) / "SKOGAI.md"
+                    root.write_text(
+                        "---\ntype: router\npermalink: test/root\n---\n"
+                        f"<routes>\n- {filename}\n</routes>\n",
+                        encoding="utf-8",
+                    )
+                    target = root.parent / filename
+                    target.write_text(
+                        f"---\n{frontmatter}\n---\nReference notes.\n", encoding="utf-8"
+                    )
+                    result = subprocess.run(
+                        [sys.executable, str(VALIDATOR), str(root)],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(result.stderr, "")
+                    if expected is None:
+                        self.assertEqual(result.returncode, 0, result.stdout)
+                    else:
+                        self.assertEqual(result.returncode, 1, result.stdout)
+                        self.assertIn(f"{target}: {expected}", result.stdout)
+
     def run_fixture(self, name: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(VALIDATOR), str(FIXTURES / name / "SKOGAI.md")],
