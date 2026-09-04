@@ -3,7 +3,16 @@ permalink: skogai-routing-v2/root
 type: router
 ---
 
-## Routing rules
+<routes>
+
+- @docs/routing-contract.md - v2 graph and ownership contract
+- scripts/validate_routing.py - graph validator
+- tests/test_validate_routing.py - validator behavior
+- @tests/fixtures/ - valid and invalid example graphs
+
+</routes>
+
+<rules>
 
 Each rule below is enforced by `scripts/validate_routing.py` and exercised by
 `tests/test_validate_routing.py` and `tests/fixtures/`.
@@ -35,11 +44,4 @@ Each rule below is enforced by `scripts/validate_routing.py` and exercised by
 - **Multiple roots validate and report independently.** The validator accepts several root files in
   one invocation and prints a separate `PASS`/`FAIL` for each. (`test_all_roots_are_reported`)
 
-<routes>
-
-- @docs/routing-contract.md - v2 graph and ownership contract
-- scripts/validate_routing.py - graph validator
-- tests/test_validate_routing.py - validator behavior
-- @tests/fixtures/ - valid and invalid example graphs
-
-</routes>
+</rules>
