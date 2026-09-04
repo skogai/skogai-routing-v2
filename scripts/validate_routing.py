@@ -22,18 +22,33 @@ class Router:
     routes: list[str]
 
 
-def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+def split_frontmatter(text: str) -> tuple[list[str], str | None] | None:
+    """Return raw header and body, or None when there is no opening delimiter.
+
+    An unterminated header retains its raw lines and has a None body so callers
+    can identify references before reporting malformed frontmatter.
+    """
     lines = text.splitlines()
     if not lines or lines[0] != "---":
-        raise ValueError("missing YAML frontmatter")
+        return None
     try:
         end = lines.index("---", 1)
-    except ValueError as exc:
-        raise ValueError("unterminated YAML frontmatter") from exc
+    except ValueError:
+        return lines[1:], None
+    return lines[1:end], "\n".join(lines[end + 1 :])
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+    parts = split_frontmatter(text)
+    if parts is None:
+        raise ValueError("missing YAML frontmatter")
+    header, body = parts
+    if body is None:
+        raise ValueError("unterminated YAML frontmatter")
 
     data: dict[str, object] = {}
     active_list: str | None = None
-    for raw in lines[1:end]:
+    for raw in header:
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
         item = re.match(r"^\s+-\s+(.+?)\s*$", raw)
@@ -52,7 +67,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
         else:
             data[key] = []
             active_list = key
-    return data, "\n".join(lines[end + 1 :])
+    return data, body
 
 
 def parse_router(path: Path) -> Router:
