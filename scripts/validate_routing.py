@@ -73,6 +73,11 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
 def parse_router(path: Path) -> Router:
     data, body = parse_frontmatter(path.read_text(encoding="utf-8"))
     if data.get("type") != "router":
+        if data.get("type") == "reference" and PORTAL_NAME.fullmatch(path.name):
+            raise ValueError(
+                "portal-shaped filenames (uppercase) are reserved for routers; "
+                "rename this reference to a lowercase filename or set type: router"
+            )
         raise ValueError("frontmatter type must be 'router'")
     permalink = data.get("permalink")
     if not isinstance(permalink, str) or not permalink.strip():
@@ -110,39 +115,8 @@ def resolve_owner(source: Path, value: str, project_root: Path) -> Path:
     return (source.parent / value).resolve()
 
 
-def check_reference_owners(path: Path, project_root: Path) -> list[str]:
-    """A leaf may declare `type: reference` with `owners:`. All that's required is
-    that each declared owner exists — it need not route back, and the reference
-    itself need not be routed to in order to be valid."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return []
-    # Ordinary leaves need not use our frontmatter format. Identify references
-    # before parsing so unsupported or malformed metadata cannot hide them.
-    parts = split_frontmatter(text)
-    if parts is None:
-        return []
-    header, _ = parts
-    if not any(re.fullmatch(r"type:\s*reference\s*", line) for line in header):
-        return []
-    try:
-        data, _ = parse_frontmatter(text)
-    except ValueError as exc:
-        return [f"{path}: invalid reference frontmatter: {exc}"]
-    if data.get("type") != "reference":
-        return []
-    owners = data.get("owners", [])
-    if not isinstance(owners, list) or not all(isinstance(owner, str) for owner in owners):
-        return [f"{path}: owners must be a list of paths"]
-    errors = []
-    for owner in owners:
-        if not resolve_owner(path, owner, project_root).exists():
-            errors.append(f"{path}: reference owner does not exist: {owner}")
-    return errors
-
-
-def validate(root_file: Path) -> list[str]:
+def discover_graph(root_file: Path) -> tuple[dict[Path, Router], list[str]]:
+    """Discover reachable routers and report structural errors."""
     root_file = root_file.resolve()
     project_root = root_file.parent
     errors: list[str] = []
@@ -177,6 +151,12 @@ def validate(root_file: Path) -> list[str]:
                 checked_references.add(target)
                 errors.extend(check_reference_owners(target, project_root))
 
+    return routers, errors
+
+
+def check_ownership(root_file: Path, project_root: Path, routers: dict[Path, Router]) -> list[str]:
+    """Check root ownership and direct ownership reciprocity in a discovered graph."""
+    errors: list[str] = []
     root = routers.get(root_file)
     if root and root.owners:
         errors.append(f"{root_file}: graph root must not declare owners")
@@ -205,6 +185,13 @@ def validate(root_file: Path) -> list[str]:
             if path not in owner_targets:
                 errors.append(f"{path}: owner does not directly route to this router: {owner}")
 
+    return errors
+
+
+def validate(root_file: Path) -> list[str]:
+    root_file = root_file.resolve()
+    routers, errors = discover_graph(root_file)
+    errors += check_ownership(root_file, root_file.parent, routers)
     return errors
 
 
