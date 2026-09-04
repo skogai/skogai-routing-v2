@@ -115,6 +115,36 @@ def resolve_owner(source: Path, value: str, project_root: Path) -> Path:
     return (source.parent / value).resolve()
 
 
+def check_reference_owners(path: Path, project_root: Path) -> list[str]:
+    """A leaf may declare `type: reference` with `owners:`. All that's required is
+    that each declared owner exists — it need not route back, and the reference
+    itself need not be routed to in order to be valid."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return []
+    parts = split_frontmatter(text)
+    if parts is None:
+        return []
+    header, _ = parts
+    if not any(re.fullmatch(r"type:\s*reference\s*", line) for line in header):
+        return []
+    try:
+        data, _ = parse_frontmatter(text)
+    except ValueError as exc:
+        return [f"{path}: invalid reference frontmatter: {exc}"]
+    if data.get("type") != "reference":
+        return []
+    owners = data.get("owners", [])
+    if not isinstance(owners, list) or not all(isinstance(owner, str) for owner in owners):
+        return [f"{path}: owners must be a list of paths"]
+    errors = []
+    for owner in owners:
+        if not resolve_owner(path, owner, project_root).exists():
+            errors.append(f"{path}: reference owner does not exist: {owner}")
+    return errors
+
+
 def discover_graph(root_file: Path) -> tuple[dict[Path, Router], list[str]]:
     """Discover reachable routers and report structural errors."""
     root_file = root_file.resolve()
