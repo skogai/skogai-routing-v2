@@ -31,6 +31,8 @@ Rules:
 - `owners` is a non-empty list of router paths for every router except the graph root.
 - The graph root is the `SKOGAI.md` passed to the validator and must not declare an owner.
 - Router portal filenames use uppercase letters, digits, `_`, and `-`, with a `.md` suffix.
+- Portal-shaped filenames are reserved for routers; `type: reference` documents should use
+  lowercase filenames.
 - Each nonblank line in `<routes>` is a Markdown list item containing one path.
 - `@` marks a project-relative path. Plain paths are relative to the router containing the route.
 - Every route target must exist.
@@ -56,4 +58,3 @@ Validation is graph-wide and diagnostic:
 - exit non-zero if any error exists.
 
 Concept and tag ownership are deliberately outside this first contract. Owners are router paths.
-

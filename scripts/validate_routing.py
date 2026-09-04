@@ -58,6 +58,11 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
 def parse_router(path: Path) -> Router:
     data, body = parse_frontmatter(path.read_text(encoding="utf-8"))
     if data.get("type") != "router":
+        if data.get("type") == "reference" and PORTAL_NAME.fullmatch(path.name):
+            raise ValueError(
+                "portal-shaped filenames (uppercase) are reserved for routers; "
+                "rename this reference to a lowercase filename or set type: router"
+            )
         raise ValueError("frontmatter type must be 'router'")
     permalink = data.get("permalink")
     if not isinstance(permalink, str) or not permalink.strip():
@@ -85,7 +90,8 @@ def resolve(source: Path, value: str, project_root: Path) -> Path:
     return (source.parent / value).resolve()
 
 
-def validate(root_file: Path) -> list[str]:
+def discover_graph(root_file: Path) -> tuple[dict[Path, Router], list[str]]:
+    """Discover reachable routers and report structural errors."""
     root_file = root_file.resolve()
     project_root = root_file.parent
     errors: list[str] = []
@@ -114,6 +120,12 @@ def validate(root_file: Path) -> list[str]:
             elif target.is_file() and PORTAL_NAME.fullmatch(target.name):
                 queue.append(target)
 
+    return routers, errors
+
+
+def check_ownership(root_file: Path, project_root: Path, routers: dict[Path, Router]) -> list[str]:
+    """Check root ownership and direct ownership reciprocity in a discovered graph."""
+    errors: list[str] = []
     root = routers.get(root_file)
     if root and root.owners:
         errors.append(f"{root_file}: graph root must not declare owners")
@@ -145,6 +157,13 @@ def validate(root_file: Path) -> list[str]:
     return errors
 
 
+def validate(root_file: Path) -> list[str]:
+    root_file = root_file.resolve()
+    routers, errors = discover_graph(root_file)
+    errors += check_ownership(root_file, root_file.parent, routers)
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("roots", nargs="+", type=Path, help="root SKOGAI.md file(s)")
@@ -164,4 +183,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
