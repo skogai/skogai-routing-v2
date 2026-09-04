@@ -7,9 +7,6 @@
     "name": "skogix",
     "email": "emil@skogsund.se"
   },
-  "skills": [
-    "./"
-  ],
   "channels": [
     {
       "server": "skogai-routing-v2",
