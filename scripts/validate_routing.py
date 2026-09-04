@@ -100,9 +100,25 @@ def check_reference_owners(path: Path, project_root: Path) -> list[str]:
     that each declared owner exists — it need not route back, and the reference
     itself need not be routed to in order to be valid."""
     try:
-        data, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError):
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
         return []
+    # Ordinary leaves need not use our frontmatter format. Identify references
+    # before parsing so unsupported or malformed metadata cannot hide them.
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return []
+    header = []
+    for line in lines[1:]:
+        if line == "---":
+            break
+        header.append(line)
+    if not any(re.fullmatch(r"type:\s*reference\s*", line) for line in header):
+        return []
+    try:
+        data, _ = parse_frontmatter(text)
+    except ValueError as exc:
+        return [f"{path}: invalid reference frontmatter: {exc}"]
     if data.get("type") != "reference":
         return []
     owners = data.get("owners", [])
@@ -200,4 +216,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

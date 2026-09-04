@@ -40,6 +40,9 @@ A route target that isn't a router portal name is a leaf. Leaves need no frontma
 optionally declare `type: reference` with an `owners:` list; if it does, every declared owner must
 exist. A reference does not need to route back to its owner, and does not need to be routed to by
 anything in order to be valid — the check only runs for references a router actually points at.
+References use the same limited frontmatter format as routers (single-line fields and indented
+lists). Malformed or unsupported reference frontmatter is reported as an error; it does not
+disable owner validation silently. Ordinary leaves do not have their metadata validated.
 
 ## Ownership
 
@@ -67,4 +70,3 @@ Validation is graph-wide and diagnostic:
 - exit non-zero if any error exists.
 
 Concept and tag ownership are deliberately outside this first contract. Owners are router paths.
-
