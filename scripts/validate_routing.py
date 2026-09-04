@@ -22,18 +22,33 @@ class Router:
     routes: list[str]
 
 
-def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+def split_frontmatter(text: str) -> tuple[list[str], str | None] | None:
+    """Return raw header and body, or None when there is no opening delimiter.
+
+    An unterminated header retains its raw lines and has a None body so callers
+    can identify references before reporting malformed frontmatter.
+    """
     lines = text.splitlines()
     if not lines or lines[0] != "---":
-        raise ValueError("missing YAML frontmatter")
+        return None
     try:
         end = lines.index("---", 1)
-    except ValueError as exc:
-        raise ValueError("unterminated YAML frontmatter") from exc
+    except ValueError:
+        return lines[1:], None
+    return lines[1:end], "\n".join(lines[end + 1 :])
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+    parts = split_frontmatter(text)
+    if parts is None:
+        raise ValueError("missing YAML frontmatter")
+    header, body = parts
+    if body is None:
+        raise ValueError("unterminated YAML frontmatter")
 
     data: dict[str, object] = {}
     active_list: str | None = None
-    for raw in lines[1:end]:
+    for raw in header:
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
         item = re.match(r"^\s+-\s+(.+?)\s*$", raw)
@@ -52,7 +67,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
         else:
             data[key] = []
             active_list = key
-    return data, "\n".join(lines[end + 1 :])
+    return data, body
 
 
 def parse_router(path: Path) -> Router:
@@ -79,10 +94,52 @@ def parse_router(path: Path) -> Router:
     return Router(path=path, permalink=permalink, owners=owners, routes=routes)
 
 
-def resolve(source: Path, value: str, project_root: Path) -> Path:
+def resolve_route(source: Path, value: str) -> Path:
+    """Route targets are always relative to the router declaring them — a router
+    never needs to know where the graph root lives, `@` included."""
+    target = value[1:] if value.startswith("@") else value
+    return (source.parent / target).resolve()
+
+
+def resolve_owner(source: Path, value: str, project_root: Path) -> Path:
+    """Owners point outward/upward to an ancestor, which may live anywhere in the
+    graph, so `@` here still anchors to the graph root; plain paths are relative
+    to the file declaring the owner."""
     if value.startswith("@"):
         return (project_root / value[1:]).resolve()
     return (source.parent / value).resolve()
+
+
+def check_reference_owners(path: Path, project_root: Path) -> list[str]:
+    """A leaf may declare `type: reference` with `owners:`. All that's required is
+    that each declared owner exists — it need not route back, and the reference
+    itself need not be routed to in order to be valid."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return []
+    # Ordinary leaves need not use our frontmatter format. Identify references
+    # before parsing so unsupported or malformed metadata cannot hide them.
+    parts = split_frontmatter(text)
+    if parts is None:
+        return []
+    header, _ = parts
+    if not any(re.fullmatch(r"type:\s*reference\s*", line) for line in header):
+        return []
+    try:
+        data, _ = parse_frontmatter(text)
+    except ValueError as exc:
+        return [f"{path}: invalid reference frontmatter: {exc}"]
+    if data.get("type") != "reference":
+        return []
+    owners = data.get("owners", [])
+    if not isinstance(owners, list) or not all(isinstance(owner, str) for owner in owners):
+        return [f"{path}: owners must be a list of paths"]
+    errors = []
+    for owner in owners:
+        if not resolve_owner(path, owner, project_root).exists():
+            errors.append(f"{path}: reference owner does not exist: {owner}")
+    return errors
 
 
 def validate(root_file: Path) -> list[str]:
@@ -90,6 +147,7 @@ def validate(root_file: Path) -> list[str]:
     project_root = root_file.parent
     errors: list[str] = []
     routers: dict[Path, Router] = {}
+    checked_references: set[Path] = set()
     queue = [root_file]
 
     while queue:
@@ -108,11 +166,16 @@ def validate(root_file: Path) -> list[str]:
         if not PORTAL_NAME.fullmatch(path.name):
             errors.append(f"{path}: router filename must be an uppercase portal name")
         for route in router.routes:
-            target = resolve(path, route, project_root)
+            target = resolve_route(path, route)
             if not target.exists():
                 errors.append(f"{path}: route target does not exist: {route}")
-            elif target.is_file() and PORTAL_NAME.fullmatch(target.name):
+            elif not target.is_file():
+                continue
+            elif PORTAL_NAME.fullmatch(target.name):
                 queue.append(target)
+            elif target not in checked_references:
+                checked_references.add(target)
+                errors.extend(check_reference_owners(target, project_root))
 
     root = routers.get(root_file)
     if root and root.owners:
@@ -122,23 +185,23 @@ def validate(root_file: Path) -> list[str]:
         if path != root_file and not router.owners:
             errors.append(f"{path}: non-root router must declare at least one owner")
         direct_router_targets = {
-            resolve(path, route, project_root)
+            resolve_route(path, route)
             for route in router.routes
-            if resolve(path, route, project_root) in routers
+            if resolve_route(path, route) in routers
         }
         for target in direct_router_targets:
             child = routers[target]
-            owner_paths = {resolve(target, owner, project_root) for owner in child.owners}
+            owner_paths = {resolve_owner(target, owner, project_root) for owner in child.owners}
             if path not in owner_paths:
                 errors.append(f"{target}: route from {path} is missing from owners")
 
         for owner in router.owners:
-            owner_path = resolve(path, owner, project_root)
+            owner_path = resolve_owner(path, owner, project_root)
             owner_router = routers.get(owner_path)
             if owner_router is None:
                 errors.append(f"{path}: owner is not a reachable router: {owner}")
                 continue
-            owner_targets = {resolve(owner_path, route, project_root) for route in owner_router.routes}
+            owner_targets = {resolve_route(owner_path, route) for route in owner_router.routes}
             if path not in owner_targets:
                 errors.append(f"{path}: owner does not directly route to this router: {owner}")
 
@@ -164,4 +227,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
