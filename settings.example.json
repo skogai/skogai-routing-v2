@@ -1,8 +1,8 @@
 {
   "$comment": "Example Basic Memory plugin settings. Copy the basicMemory block (and optionally outputStyle) into your project's .claude/settings.json, then set primaryProject. The easiest way to fill this in is /basic-memory:bm-setup. Team projects (secondaryProjects, teamProjects) must use workspace-qualified names like 'my-team/notes' or external_id UUIDs — bare names are ambiguous across workspaces. See DESIGN.md for the full schema.",
   "basicMemory": {
-    "primaryProject": "my-project",
-    "secondaryProjects": ["my-team/main", "my-team/notes"],
+    "primaryProject": "skogai-routing",
+    "secondaryProjects": ["docs", "dot-skogai", "dash-skogai"],
     "captureFolder": "sessions",
     "rememberFolder": "bm-remember",
     "recallTimeframe": "3d",
@@ -12,7 +12,7 @@
     "captureEvents": true,
     "placementConventions": null,
     "teamProjects": {
-      "my-team/notes": { "promoteFolder": "shared" }
+      "dash-skogai": { "promoteFolder": "wiki" }
     }
   },
   "outputStyle": "basic-memory"

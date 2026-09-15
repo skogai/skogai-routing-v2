@@ -1,0 +1,13 @@
+interface:
+  display_name: SkogAI Routing
+  short_description: Create and validate SkogAI router files
+  default_prompt: Use $skogai-routing to validate the router files in this project.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

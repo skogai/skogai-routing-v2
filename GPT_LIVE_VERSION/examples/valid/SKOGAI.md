@@ -1,0 +1,11 @@
+---
+permalink: skogai-routing/skogai
+type: router
+---
+
+<routes>
+
+- @MY/PATH/TO/DIR/ - list a directory and allow reading from the files within
+- @SUBFOLDER/SKOGAI.md - link to another subfolder's router
+
+</routes>

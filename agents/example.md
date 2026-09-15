@@ -4,6 +4,7 @@ name: example
 tools:
   - Read
   - Grep
+permalink: skogai-routing/agents/example
 ---
 
 TODO: system prompt for the subagent.

@@ -1,6 +1,6 @@
 # Basic Memory Claude Code plugin checks
 
-repo_root := "../.."
+repo_root := "."
 
 # Portable manifest and bundled agent/skill layout checks
 manifest-check:

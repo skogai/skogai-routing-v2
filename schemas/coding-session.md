@@ -22,11 +22,17 @@ settings:
     branch: string, checked-out Git branch or HEAD when detached
     git_sha: string, exact Git commit at checkpoint time
     ended?: string, when the session was checkpointed
-    status?(enum, lifecycle of the checkpoint): [open, resumed, closed]
+    status?(enum, lifecycle of the checkpoint):
+      - open
+      - resumed
+      - closed
     pull_request_number?: string, current pull request number as a queryable identifier
     pull_request_title?: string, current pull request title
     pull_request_url?: string, canonical pull request URL
-    pull_request_state?(enum, pull request state at checkpoint time): [open, closed, merged]
+    pull_request_state?(enum, pull request state at checkpoint time):
+      - open
+      - closed
+      - merged
     pull_request_base?: string, pull request base branch
     pull_request_head?: string, pull request head branch
     username?: string, operating-system user that created the checkpoint
@@ -36,14 +42,16 @@ settings:
     codex_turn_id?: string, Codex turn identifier
     trigger?: string, compaction trigger or deliberate checkpoint source
     model?: string, active model slug when known
-    capture?(enum, how this checkpoint was produced): [extractive, deliberate, summarized]
+    capture?(enum, how this checkpoint was produced):
+      - extractive
+      - deliberate
+      - summarized
+permalink: skogai-routing/schemas/coding-session
 ---
 
 # Coding Session
 
-A **CodingSession** is a resumable engineering checkpoint whose repository
-identity is structured and queryable. Required Git fields make it possible to
-find the exact work cursor without parsing prose.
+A **CodingSession** is a resumable engineering checkpoint whose repository identity is structured and queryable. Required Git fields make it possible to find the exact work cursor without parsing prose.
 
 Examples:
 
@@ -53,8 +61,4 @@ Examples:
 
 `search_notes(note_types=["coding_session"], metadata_filters={"codex_session_id": "<id>"})`
 
-Pull-request fields are optional because valid coding work can precede a pull
-request. When a pull request exists, checkpoint writers populate the complete
-pull-request field set. Multiple checkpoints from one agent chat share the
-relevant `claude_session_id` or `codex_session_id`; each new checkpoint can link
-to its verified predecessor with `continues [[Previous checkpoint title]]`.
+Pull-request fields are optional because valid coding work can precede a pull request. When a pull request exists, checkpoint writers populate the complete pull-request field set. Multiple checkpoints from one agent chat share the relevant `claude_session_id` or `codex_session_id`; each new checkpoint can link to its verified predecessor with `continues [[Previous checkpoint title]]`.
