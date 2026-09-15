@@ -14,31 +14,29 @@ schema:
 settings:
   validation: warn
   frontmatter:
-    status?(enum, lifecycle of the decision): [open, accepted, superseded, rejected]
+    status?(enum, lifecycle of the decision):
+      - open
+      - accepted
+      - superseded
+      - rejected
     decided?: string, when the decision was made (ISO timestamp)
     project?: string, the Basic Memory project this decision belongs to
+permalink: skogai-routing/schemas/decision
 ---
 
 # Decision
 
-A **DecisionNote** is a durable record of a real choice — one with alternatives
-and a rationale, not a passing preference. The Basic Memory plugin's output-style
-prompts Claude to capture these inline as decisions are made, and the future
-`/basic-memory:bm-decide` command captures them explicitly.
+A **DecisionNote** is a durable record of a real choice — one with alternatives and a rationale, not a passing preference. The Basic Memory plugin's output-style prompts Claude to capture these inline as decisions are made, and the future `/basic-memory:bm-decide` command captures them explicitly.
 
-Decisions are found by structured recall:
-`search_notes(metadata_filters={"type": "decision", "status": "open"})`.
+Decisions are found by structured recall: `search_notes(metadata_filters={"type": "decision", "status": "open"})`.
 
 ## What makes a good DecisionNote
 
 - **decision** — state the choice plainly.
-- **rationale** + **alternative** — why this, and what was rejected. This is the
-  part that saves a future session from relitigating the same ground.
+- **rationale** + **alternative** — why this, and what was rejected. This is the part that saves a future session from relitigating the same ground.
 - **consequence** — what the choice commits the work to.
 - **affects** / **supersedes** — relations that wire the decision into the graph.
 
 ## Frontmatter
 
-`type: decision` plus `status` make decisions queryable. Capture decisions
-sparingly — one note per genuine decision, not per opinion. Validation is `warn`,
-never blocking.
+`type: decision` plus `status` make decisions queryable. Capture decisions sparingly — one note per genuine decision, not per opinion. Validation is `warn`, never blocking.

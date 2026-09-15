@@ -1,6 +1,7 @@
 ---
 description: TODO — describe WHEN Claude should use this. Include trigger phrases users might say ("do X", "set up Y", "review Z"). Be specific; this string is what Claude matches the user's request against.
 name: skogai-routing-v2
+permalink: skogai-routing/skogai-1
 ---
 
 # skogai-routing-v2
