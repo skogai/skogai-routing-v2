@@ -4,12 +4,13 @@ description: Build, run, and drive the skogai-routing-v2 plugin's channel MCP se
 ---
 
 This repo *is* the plugin (no separate app dir). Its only runtime piece is
-`server.ts`, a stdio MCP server — there's no HTTP port and no GUI, so it's
-driven by speaking newline-delimited JSON-RPC 2.0 over its stdin/stdout, per
-the [channels reference](https://code.claude.com/docs/en/channels-reference).
-Drive it via `.claude/skills/run-skogai-routing-v2/driver.mjs`, which does the
-`initialize` handshake and then calls tools. All paths below are relative to
-the repo root.
+`server.ts`, a stdio MCP server for the outbound (Claude → external) side,
+plus a local-only HTTP listener for the inbound (external → Claude) side —
+see [channels reference](https://code.claude.com/docs/en/channels-reference).
+Drive the stdio/tool side via `.claude/skills/run-skogai-routing-v2/driver.mjs`,
+which does the `initialize` handshake and then calls tools. Drive the inbound
+HTTP side with `curl` or the `skogchan` helper (see below). All paths below
+are relative to the repo root.
 
 ## Prerequisites
 
@@ -51,6 +52,34 @@ throwing — confirmed with `--tool bogus --args '{}'` → `{"content":[{"type":
 
 The driver exits on its own after the call completes; no process to clean up.
 
+### Sending inbound events (external → Claude)
+
+Once the server is running, any local process can POST to wake the channel:
+
+```bash
+curl -s localhost:8765/message -d '{"content":"hello"}'
+# → {"ok":true}
+```
+
+`content` (required, string) becomes the event body; `meta` (optional object)
+keys become attributes on the `<channel source="skogai-routing-v2" ...>` tag
+Claude sees — keys must be identifier-safe (letters/digits/underscores) or
+they're silently dropped. The port defaults to 8765, overridable via
+`SKOGAI_CHANNEL_PORT`.
+
+The `skogchan` helper script (`~/.local/bin/skogchan`, separate from the
+unrelated `skogcli` tool) wraps this for repeated use:
+
+```bash
+skogchan register skogai-routing-v2 8765   # once, remembers the port by name
+skogchan send skogai-routing-v2 "hello"    # POSTs to it
+skogchan list                              # show registered channels
+```
+
+Replies Claude sends via the `reply` tool are appended to `./channel.log`
+(one line per reply, ISO timestamp prefix) rather than delivered anywhere
+automatically — tail that file to watch them.
+
 ### Testing the SessionStart hook directly
 
 The hook handler is a standalone stdin→stdout JSON program, no server needed:
@@ -84,12 +113,15 @@ The driver script above is the closest thing to a smoke test.
   `Content-Length` headers, just one JSON object per line. A driver that
   tries to parse `Content-Length:`-style frames will hang forever waiting
   for a header that never comes.
-- **`reply` and inbound channel events are both stubs.** `reply`'s handler
-  returns the literal string `"sent"` without delivering anything anywhere
-  (see the `TODO` in `server.ts`), and there is no inbound
-  `notifications/claude/channel` push implemented yet — so the driver has
-  nothing further to exercise for the "external service" side of the
-  contract, only the tool-call side.
+- **`reply` writes to `./channel.log`, nothing more.** It appends a
+  timestamped line and returns `"sent"` — there's no delivery to any actual
+  external service yet, just a file an external watcher can `tail -f`.
+- **Inbound events require the server to actually be running and listening**
+  (`Bun.serve` starts *after* `mcp.connect`, so the startup log lines
+  `[skogai-routing-v2] inbound: POST http://127.0.0.1:8765/message` and
+  `... replies logged to ./channel.log` on stderr are the signal it's ready).
+  The driver script only exercises the stdio/tool side — use `curl`/`skogchan`
+  against the HTTP port to exercise the inbound side, as above.
 - **`bun run start` re-runs `bun install` every time** (it's `bun install
   --no-summary && bun server.ts`), which is a couple hundred ms of overhead
   on every launch even when nothing changed — harmless, just don't be
