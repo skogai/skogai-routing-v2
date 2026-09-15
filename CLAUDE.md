@@ -44,10 +44,12 @@ echo '{}' | bun hooks-handlers/on-session-start.ts
 
 This is the only non-trivial code in the repo, and its two halves are asymmetric:
 
-- **Outbound (Claude → external service):** the `reply` tool. The `instructions` string on the `Server` states the rule that makes the channel work — Claude's transcript output *never* reaches the channel, so anything the sender should see must be sent through `reply`. Its handler is a stub that returns `"sent"` without delivering anything.
-- **Inbound (external service → Claude):** a `notifications/claude/channel` notification, sketched in a trailing comment block but not implemented. `params.content` becomes the event body; each `params.meta` key becomes an attribute on the `<channel source="...">` tag Claude sees, and meta keys must be identifier-safe (letters/digits/underscores) or they are silently dropped.
+- **Outbound (Claude → external service):** the `reply` tool. The `instructions` string on the `Server` states the rule that makes the channel work — Claude's transcript output *never* reaches the channel, so anything the sender should see must be sent through `reply`. Its handler appends `args.text` to `channel.log` (relative to `CLAUDE_PLUGIN_ROOT`, gitignored) — a placeholder sink until a real external service is wired in.
+- **Inbound (external service → Claude):** any local process can `POST http://127.0.0.1:$SKOGAI_CHANNEL_PORT/message` (default port `8765`) with JSON `{ "content": "...", "meta": {...} }`; the server turns that into a `notifications/claude/channel` notification. `params.content` becomes the event body; each `params.meta` key becomes an attribute on the `<channel source="...">` tag Claude sees, and meta keys must be identifier-safe (letters/digits/underscores) or they are silently dropped by Claude Code, not by the server.
 
 The `capabilities.experimental['claude/channel'] = {}` key is load-bearing: its presence is what registers the channel notification listener on Claude's side. Removing it breaks inbound events even though the server still starts fine.
+
+To test end-to-end without a real external service: enable the plugin, then `curl -s localhost:8765/message -d '{"content":"hello"}'` — a `<channel>` message should appear in the session, and any `reply` the session sends back lands in `channel.log`.
 
 Reference docs: https://code.claude.com/docs/en/channels-reference
 
