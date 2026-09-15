@@ -60,37 +60,62 @@ await mcp.connect(new StdioServerTransport())
 
 // Inbound side: any local process — another MCP server, a script, curl —
 // can POST { content, meta? } to wake this channel's session.
-Bun.serve({
-  port: PORT,
-  hostname: '127.0.0.1',
-  async fetch(req) {
-    const url = new URL(req.url)
-    if (url.pathname !== '/message') return new Response('not found', { status: 404 })
-    if (req.method !== 'POST') return new Response('POST only', { status: 405 })
+//
+// A crash here (most commonly EADDRINUSE from a stale server.ts left running
+// by a previous session) must not take down the stdio MCP connection above —
+// that would silently kill the reply tool too. Catch it, log it clearly, and
+// keep running so at least the outbound half of the channel still works.
+let http: ReturnType<typeof Bun.serve> | undefined
+try {
+  http = Bun.serve({
+    port: PORT,
+    hostname: '127.0.0.1',
+    async fetch(req) {
+      const url = new URL(req.url)
+      if (url.pathname !== '/message') return new Response('not found', { status: 404 })
+      if (req.method !== 'POST') return new Response('POST only', { status: 405 })
 
-    let body: unknown
-    try {
-      body = await req.json()
-    } catch {
-      return new Response('invalid JSON', { status: 400 })
-    }
+      let body: unknown
+      try {
+        body = await req.json()
+      } catch {
+        return new Response('invalid JSON', { status: 400 })
+      }
 
-    const { content, meta } = (body ?? {}) as { content?: unknown; meta?: unknown }
-    if (typeof content !== 'string' || content.length === 0) {
-      return new Response('"content" (string) is required', { status: 400 })
-    }
+      const { content, meta } = (body ?? {}) as { content?: unknown; meta?: unknown }
+      if (typeof content !== 'string' || content.length === 0) {
+        return new Response('"content" (string) is required', { status: 400 })
+      }
 
-    // Meta keys must be identifiers (letters/digits/underscores) to survive
-    // as <channel> attributes — non-conforming keys are silently dropped by
-    // Claude, not by us.
-    await mcp.notification({
-      method: 'notifications/claude/channel',
-      params: { content, meta: (meta ?? {}) as Record<string, string> },
-    })
+      // Meta keys must be identifiers (letters/digits/underscores) to survive
+      // as <channel> attributes — non-conforming keys are silently dropped by
+      // Claude, not by us.
+      await mcp.notification({
+        method: 'notifications/claude/channel',
+        params: { content, meta: (meta ?? {}) as Record<string, string> },
+      })
 
-    return Response.json({ ok: true })
-  },
-})
+      return Response.json({ ok: true })
+    },
+  })
+  console.error(`[skogai-routing-v2] inbound: POST http://127.0.0.1:${PORT}/message`)
+  console.error(`[skogai-routing-v2] replies logged to ${LOG_PATH}`)
+} catch (err) {
+  console.error(
+    `[skogai-routing-v2] inbound HTTP listener failed to start on port ${PORT}: ${err}`,
+  )
+  console.error(
+    `[skogai-routing-v2] likely a stale server.ts from a previous session still holds the port — ` +
+      `run \`ss -ltnp | grep ${PORT}\` and kill it, or set SKOGAI_CHANNEL_PORT to a free port. ` +
+      `The reply tool still works; inbound messages will not arrive until this is fixed.`,
+  )
+}
 
-console.error(`[skogai-routing-v2] inbound: POST http://127.0.0.1:${PORT}/message`)
-console.error(`[skogai-routing-v2] replies logged to ${LOG_PATH}`)
+// Release the port on shutdown so the next session doesn't hit the same
+// stale-process problem this one may have inherited.
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    http?.stop(true)
+    process.exit(0)
+  })
+}

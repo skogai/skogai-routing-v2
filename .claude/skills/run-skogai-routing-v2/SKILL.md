@@ -54,12 +54,33 @@ The driver exits on its own after the call completes; no process to clean up.
 
 ### Sending inbound events (external → Claude)
 
-Once the server is running, any local process can POST to wake the channel:
+This only reaches a real Claude Code session — not the `driver.mjs` harness
+above — and only if that session was started with the development-channel
+bypass flag. Channels are in research preview and custom channels aren't on
+the approved allowlist, so a normal session drops every inbound event
+silently (no error on either side, `mcp.notification()` still resolves
+"successfully"). Start the session with:
+
+```bash
+claude --dangerously-load-development-channels plugin:skogai-routing-v2@skogai-routing-v2
+```
+
+Accept the warning dialog, then look for the dim banner `Channels
+(experimental) messages from server:skogai-routing-v2 inject directly in
+this session`. Run `/mcp` at any point to confirm `skogai-routing-v2` shows
+`connected` before troubleshooting anything else — this is the single most
+useful diagnostic step, and the one most likely to be skipped.
+
+Once that session is confirmed connected, any local process can POST to wake it:
 
 ```bash
 curl -s localhost:8765/message -d '{"content":"hello"}'
 # → {"ok":true}
 ```
+
+A `200 {"ok":true}` response only means the HTTP layer accepted the POST —
+it does **not** mean the message reached a session. Check the terminal
+running the flagged session for the `<channel>` tag to confirm delivery.
 
 `content` (required, string) becomes the event body; `meta` (optional object)
 keys become attributes on the `<channel source="skogai-routing-v2" ...>` tag
@@ -126,3 +147,17 @@ The driver script above is the closest thing to a smoke test.
   --no-summary && bun server.ts`), which is a couple hundred ms of overhead
   on every launch even when nothing changed — harmless, just don't be
   surprised by the extra output on stderr-adjacent installs.
+- **A stale `server.ts` from a previous session silently blocks inbound
+  events on the next one.** Claude Code doesn't always kill the subprocess
+  on exit, so a leftover process can keep holding port 8765. The new
+  session's own `server.ts` still connects fine over stdio (`reply` keeps
+  working, `/mcp` shows `connected`) but its `Bun.serve()` call throws
+  `EADDRINUSE`; the catch logs `inbound HTTP listener failed to start on
+  port 8765: ...` to stderr instead of crashing. `ss -ltnp | grep 8765`
+  finds the stale process; kill it and restart the session.
+- **`curl` returning `200 {"ok":true}` only proves the HTTP layer accepted
+  the POST — not that a session received it.** If the session wasn't
+  started with `--dangerously-load-development-channels
+  plugin:skogai-routing-v2@skogai-routing-v2`, Claude Code drops the event
+  with no error anywhere. Check `/mcp` for `connected` status before
+  trusting a `curl` success as proof of delivery.
