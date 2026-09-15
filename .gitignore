@@ -2,3 +2,4 @@ node_modules/
 __pycache__/
 *.pyc
 /.skogai/config/script_metadata.json
+/channel.log
