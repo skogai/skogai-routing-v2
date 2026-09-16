@@ -53,9 +53,11 @@ The `capabilities.experimental['claude/channel'] = {}` key is load-bearing: its 
 
 **Do not test against the marketplace-installed plugin** (`plugin:skogai-routing-v2@skogai-routing-v2`, whatever lives under `~/.claude/plugins/cache/...`). Claude Code copies a marketplace plugin into that cache once and only re-copies it when `plugin.json`'s `version` field changes ([plugins-reference: version management](https://code.claude.com/docs/en/plugins-reference#version-management)) — a `git push` alone does not update it. Testing against the cache means testing stale code unless you remember to bump the version and reinstall every time.
 
-Instead, load this checkout directly, which needs no install step and always reflects the working tree:
+Instead, load this checkout directly, which needs no install step and always reflects the working tree. `scripts/dev.sh` (also `bun run dev`) runs the exact command below, resolved to this checkout's own path, so you don't have to retype or hardcode it:
 
 ```sh
+bun run dev
+# equivalent to:
 claude --plugin-dir /home/skogix/.local/src/skogai-routing-v2 --dangerously-load-development-channels server:skogai-routing-v2
 ```
 

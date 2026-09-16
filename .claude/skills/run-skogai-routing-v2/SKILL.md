@@ -71,9 +71,13 @@ custom channels aren't on the approved allowlist, so a normal session drops
 every inbound event silently (no error on either side, `mcp.notification()`
 still resolves "successfully").
 
-Both together:
+Both together — run `scripts/dev.sh` (or `bun run dev`), which resolves the
+`--plugin-dir` path to this checkout automatically instead of you retyping
+or hardcoding it:
 
 ```bash
+bun run dev
+# equivalent to:
 claude --plugin-dir /home/skogix/.local/src/skogai-routing-v2 --dangerously-load-development-channels server:skogai-routing-v2
 ```
 
