@@ -55,21 +55,41 @@ The driver exits on its own after the call completes; no process to clean up.
 ### Sending inbound events (external → Claude)
 
 This only reaches a real Claude Code session — not the `driver.mjs` harness
-above — and only if that session was started with the development-channel
-bypass flag. Channels are in research preview and custom channels aren't on
-the approved allowlist, so a normal session drops every inbound event
-silently (no error on either side, `mcp.notification()` still resolves
-"successfully"). Start the session with:
+above — and only if that session was started right. Two separate
+requirements, both mandatory:
+
+**Load this checkout with `--plugin-dir`, not the marketplace-installed
+copy.** Claude Code only re-copies a marketplace plugin into
+`~/.claude/plugins/cache/...` when `plugin.json`'s `version` changes — a
+`git push` doesn't update it, so testing against the installed
+`skogai-routing-v2@skogai-routing-v2` plugin means testing stale code.
+`--plugin-dir` loads the repo in place instead, no cache, no install step,
+edits are live.
+
+**Bypass the channel allowlist.** Channels are in research preview and
+custom channels aren't on the approved allowlist, so a normal session drops
+every inbound event silently (no error on either side, `mcp.notification()`
+still resolves "successfully").
+
+Both together:
 
 ```bash
-claude --dangerously-load-development-channels plugin:skogai-routing-v2@skogai-routing-v2
+claude --plugin-dir /home/skogix/.local/src/skogai-routing-v2 --dangerously-load-development-channels server:skogai-routing-v2
 ```
+
+Note the bypass entry is `server:skogai-routing-v2` (the `.mcp.json` server
+name), not `plugin:name@marketplace` — `--plugin-dir` plugins have no
+marketplace.
 
 Accept the warning dialog, then look for the dim banner `Channels
 (experimental) messages from server:skogai-routing-v2 inject directly in
 this session`. Run `/mcp` at any point to confirm `skogai-routing-v2` shows
 `connected` before troubleshooting anything else — this is the single most
 useful diagnostic step, and the one most likely to be skipped.
+
+If you edit `server.ts` mid-session, `/reload-plugins` won't pick it up —
+plugin MCP server reconnects only happen on the next session, not on
+`/reload-plugins`. Restart the session after server.ts changes.
 
 Once that session is confirmed connected, any local process can POST to wake it:
 
@@ -158,6 +178,14 @@ The driver script above is the closest thing to a smoke test.
 - **`curl` returning `200 {"ok":true}` only proves the HTTP layer accepted
   the POST — not that a session received it.** If the session wasn't
   started with `--dangerously-load-development-channels
-  plugin:skogai-routing-v2@skogai-routing-v2`, Claude Code drops the event
-  with no error anywhere. Check `/mcp` for `connected` status before
-  trusting a `curl` success as proof of delivery.
+  server:skogai-routing-v2`, Claude Code drops the event with no error
+  anywhere. Check `/mcp` for `connected` status before trusting a `curl`
+  success as proof of delivery.
+- **Testing against the installed marketplace plugin instead of
+  `--plugin-dir` silently tests stale code.** The plugin cache
+  (`~/.claude/plugins/cache/skogai-routing-v2/skogai-routing-v2/<version>/`)
+  is a plain file copy that Claude Code only refreshes when `plugin.json`'s
+  `version` changes, not on every `git push`. A session that loads
+  `plugin:skogai-routing-v2@skogai-routing-v2` can be running code several
+  commits behind the repo with no warning. `--plugin-dir` avoids the cache
+  entirely — always use it for local development (see above).

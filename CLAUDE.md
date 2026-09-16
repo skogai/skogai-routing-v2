@@ -49,19 +49,30 @@ This is the only non-trivial code in the repo, and its two halves are asymmetric
 
 The `capabilities.experimental['claude/channel'] = {}` key is load-bearing: its presence is what registers the channel notification listener on Claude's side. Removing it breaks inbound events even though the server still starts fine.
 
-### Testing end-to-end (research preview — the flag below is not optional)
+### Testing end-to-end (use `--plugin-dir`, not the installed marketplace copy)
 
-Channels are in Claude Code's research preview and custom channels aren't on the approved allowlist, so a normal session — even with the plugin installed and enabled — silently drops every inbound event with no error on either side. `mcp.notification()` resolves successfully regardless; nothing tells you it went nowhere. You must start the session with the development-channel bypass flag:
+**Do not test against the marketplace-installed plugin** (`plugin:skogai-routing-v2@skogai-routing-v2`, whatever lives under `~/.claude/plugins/cache/...`). Claude Code copies a marketplace plugin into that cache once and only re-copies it when `plugin.json`'s `version` field changes ([plugins-reference: version management](https://code.claude.com/docs/en/plugins-reference#version-management)) — a `git push` alone does not update it. Testing against the cache means testing stale code unless you remember to bump the version and reinstall every time.
+
+Instead, load this checkout directly, which needs no install step and always reflects the working tree:
 
 ```sh
-claude --dangerously-load-development-channels plugin:skogai-routing-v2@skogai-routing-v2
+claude --plugin-dir /home/skogix/.local/src/skogai-routing-v2 --dangerously-load-development-channels server:skogai-routing-v2
 ```
+
+Two things about this command:
+
+- `--plugin-dir <path>` loads the plugin in place for this session only — no cache copy, so `${CLAUDE_PLUGIN_ROOT}` resolves straight to the repo and edits are live. When a plugin with the same name is already installed via a marketplace, the `--plugin-dir` copy takes precedence for that session, so there's no need to uninstall the marketplace version first.
+- Because `--plugin-dir` plugins have no marketplace, the channel bypass entry is `server:skogai-routing-v2` (the name from `.mcp.json`), not `plugin:name@marketplace`.
+
+Channels are in Claude Code's research preview and custom channels aren't on the approved allowlist, so a normal session — even with the plugin loaded and enabled — silently drops every inbound event with no error on either side. `mcp.notification()` resolves successfully regardless; nothing tells you it went nowhere. The `--dangerously-load-development-channels` flag above is what bypasses that.
 
 Accept the full-screen warning dialog, then confirm the dim banner appears: `Channels (experimental) messages from server:skogai-routing-v2 inject directly in this session`. Only then does `curl -s localhost:8765/message -d '{"content":"hello"}'` actually reach the session — a `<channel>` message should appear in the transcript, and any `reply` the session sends back lands in `channel.log`. Run `/mcp` in-session at any point to check whether `skogai-routing-v2` shows `connected` — that's the fastest way to tell whether the flag/dialog step actually took, before spending time on the HTTP side at all.
 
+**After editing `server.ts`, restart the session.** `/reload-plugins` picks up skill/hook/agent changes live, but it does not reconnect plugin MCP servers — those changes only take effect in your next session ([discover-plugins: apply plugin changes without restarting](https://code.claude.com/docs/en/discover-plugins#apply-plugin-changes-without-restarting)).
+
 **Stale port from a previous session is the other common failure.** Claude Code doesn't always clean up the `server.ts` subprocess when a session exits, so a leftover process can keep holding port 8765 across restarts. `Bun.serve()` throws `EADDRINUSE` in that case; `server.ts` catches it, logs `inbound HTTP listener failed to start on port 8765: ...` to stderr, and keeps the stdio MCP connection (and `reply` tool) alive rather than crashing — but inbound events still won't arrive until the stale process is killed. `ss -ltnp | grep 8765` finds it; kill it and restart the session (or set `SKOGAI_CHANNEL_PORT` to a free port for both).
 
-Reference docs: https://code.claude.com/docs/en/channels-reference
+Reference docs: https://code.claude.com/docs/en/channels-reference, https://code.claude.com/docs/en/plugins-reference, https://code.claude.com/docs/en/discover-plugins
 
 ### Hooks
 
